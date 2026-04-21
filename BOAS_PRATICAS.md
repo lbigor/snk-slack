@@ -1,5 +1,17 @@
 # BOAS PRATICAS
 
+## Release tracking automatico — nao logue versao manualmente
+
+Se o JAR foi empacotado pelo [snk-deploy](https://github.com/lbigor/snk-deploy),
+a lib detecta o manifest em `META-INF/snk-deploy/manifest.json` e adiciona um
+footer com hash, branch e PR **em toda mensagem Slack**, sem codigo extra.
+
+**Nao coloque versao/commit/PR manualmente nos logs** (via `slack.info("VERSAO", ...)` ou
+similar). O footer automatico e mais confiavel e consistente. Se o manifest nao
+existir (build local/IDE), o footer simplesmente some.
+
+Para desligar: `SlackLogger.create(null).modulo(...).withReleaseTracking(false).build()`.
+
 ## Tags convencionadas
 
 Use tags curtas e padronizadas. Facilita filtro no Slack e grep de logs.
