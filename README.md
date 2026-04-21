@@ -1,5 +1,8 @@
 # snk-slack
 
+[![Discussions](https://img.shields.io/github/discussions/lbigor/snk-slack)](https://github.com/lbigor/snk-slack/discussions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > Observabilidade Sankhya no Slack em 10 minutos. Logs estruturados, tags padronizadas, buffer inteligente.
 
 **Problema:** rodada quebra em producao, voce descobre 3 dias depois.
