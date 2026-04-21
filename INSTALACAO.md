@@ -2,103 +2,155 @@
 
 Guia passo-a-passo pra quem nunca usou Slack. Leva ~10 minutos.
 
-> Nos exemplos abaixo usamos os nomes `Log Sankhya` (app) e `#logsankhya`
-> (canal), mas voce pode escolher qualquer nome. A skill nao depende desses
-> nomes em lugar nenhum — e tudo configuravel.
+> Nos exemplos usamos `Log Sankhya` (app) e `#logsankhya` (canal), mas voce
+> pode escolher qualquer nome. A skill nao depende desses nomes em lugar
+> nenhum — e tudo configuravel.
 
-## Parte 1 — Criar o workspace e o canal
+## Parte 1 — Workspace
 
 ### 1. Criar workspace Slack (se ainda nao tem)
 
-Acesse [slack.com/create](https://slack.com/create) e crie um workspace com o e-mail da sua empresa. Nao precisa convidar ninguem agora.
+Acesse [slack.com/create](https://slack.com/create) e crie um workspace com o
+e-mail da sua empresa. Nao precisa convidar ninguem agora.
 
-### 2. Criar o canal de logs
+## Parte 2 — App Slack (cria o bot)
 
-No workspace, clique em **Adicionar canal → Criar canal**. Escolha:
+### 2. Criar app Slack
 
-- **Nome:** o que preferir (ex: `logsankhya`, `logs-customizacoes`, `sankhya-alerts`).
-- **Privacidade:** privado se quer esconder os logs de outros membros; publico se qualquer pessoa do workspace pode ver.
+Acesse [api.slack.com/apps](https://api.slack.com/apps), clique em
+**Create New App → From scratch**. Escolha:
 
-Guarde o nome escolhido — vai usar nos proximos passos.
-
-## Parte 2 — Criar o app Slack e o webhook
-
-### 3. Criar app Slack
-
-Acesse [api.slack.com/apps](https://api.slack.com/apps), clique em **Create New App → From scratch**. Escolha:
-
-- **Nome do app:** o que preferir (ex: `Log Sankhya`, `Meu Logger`, `Sankhya Bot`).
+- **Nome do app:** o que preferir (ex: `Log Sankhya`, `Meu Logger`).
 - **Workspace:** o criado no passo 1.
 
-Esse nome vai aparecer como autor das mensagens no canal (a menos que voce customize via `SlackLogger.Builder.username(...)`).
+Esse nome vai aparecer como autor das mensagens no canal.
+O bot e criado automaticamente com o mesmo nome.
 
-### 4. Ativar Incoming Webhooks
+### 3. Ativar Incoming Webhooks
 
-No menu lateral do app, clique em **Incoming Webhooks**. Ative o toggle **Activate Incoming Webhooks**. Role pra baixo e clique em **Add New Webhook to Workspace**. Escolha o canal criado no passo 2. Clique em **Allow**.
+No menu lateral do app, clique em **Incoming Webhooks**. Ative o toggle
+**Activate Incoming Webhooks**.
 
-### 5. Se o canal for PRIVADO: adicionar o bot ao canal
+Ainda NAO crie o webhook — o canal ainda nao existe.
 
-Canal privado no Slack nao permite que o webhook poste nele sem que o bot seja membro. Na caixa de mensagem do canal, envie:
+## Parte 3 — Canal
+
+### 4. Criar o canal de logs
+
+Volte pro app Slack. Clique em **Adicionar canal → Criar canal**. Escolha:
+
+- **Nome:** o que preferir (ex: `logsankhya`).
+- **Privacidade:**
+  - **Privado** (recomendado — logs podem ter dado sensivel).
+  - **Publico** (qualquer pessoa do workspace ve).
+
+### 5. Se PRIVADO: adicionar o bot ao canal
+
+Canal privado nao permite que o webhook poste nele sem que o bot seja
+membro. Na caixa de mensagem do canal, envie:
 
 ```
 /invite @<nome-do-seu-bot>
 ```
 
-Substitua `<nome-do-seu-bot>` pelo nome exato do app criado no passo 3 (o Slack autocompleta quando voce comeca a digitar). Apos o convite aparecer a mensagem "X adicionou Y ao canal", o webhook ja funciona.
+O Slack autocompleta com o nome do app criado no passo 2. Apos o convite,
+aparece a mensagem "X adicionou Y ao canal".
 
 > Canal publico nao precisa deste passo.
 
-### 6. Copiar Webhook URL
+## Parte 4 — Webhook
 
-Volte pra tela **Incoming Webhooks**. Ao lado do webhook criado, clique em **Copy**. Formato: `https://hooks.slack.com/services/T.../B.../...`. Essa URL e **secreta** — trate como senha.
+### 6. Criar webhook apontando pro canal
 
-## Parte 3 — Instalar a lib no projeto Sankhya
+Volte em [api.slack.com/apps](https://api.slack.com/apps) → seu app →
+**Incoming Webhooks**. Role pra baixo e clique em
+**Add New Webhook to Workspace**. Escolha o canal criado no passo 4.
+Clique em **Allow**.
 
-### 7. Peca ao Claude pra instalar
+### 7. Copiar Webhook URL
+
+O Slack mostra a URL. Clique em **Copy**. Formato:
+`https://hooks.slack.com/services/T.../B.../...`. Essa URL e **secreta** —
+trate como senha.
+
+### 8. Salvar localmente (sem colar em chat)
+
+No terminal, cole (com a URL ainda no clipboard):
+
+```bash
+pbpaste > ~/.sankhya-slack-webhook && chmod 600 ~/.sankhya-slack-webhook
+```
+
+Confirme: `head -c 30 ~/.sankhya-slack-webhook` — tem que comecar com
+`https://hooks.slack.com/services/T`.
+
+### 9. Testar que o bot posta no canal
+
+```bash
+curl -sS -X POST -H 'Content-Type: application/json' \
+  -d '{"text":"Teste inicial — snk-slack config nova :wave:"}' \
+  "$(cat ~/.sankhya-slack-webhook)"
+```
+
+Saida esperada: `ok`. Abra o Slack no canal e confirme que a mensagem
+apareceu.
+
+Se deu erro:
+
+- `channel_not_found` → bot nao e membro do canal privado. Volte ao passo 5.
+- `invalid_payload` → URL do webhook errada. Refaca passos 6-8.
+
+## Parte 5 — Lib no projeto Sankhya
+
+### 10. Instalar a lib
 
 Dentro do projeto Sankhya Java, peca ao Claude:
 
 > "Adiciona o log Slack nesse projeto."
 
-A skill Claude Code copia os 5 arquivos Java da lib para `src/br/com/lbi/slack/`, valida o Gson no classpath e instrumenta o entry point principal.
+A skill Claude Code copia os 5 arquivos Java da lib para
+`src/br/com/lbi/slack/`, valida o Gson no classpath e instrumenta o entry
+point principal.
 
-Se preferir fazer manualmente: copie os 5 arquivos de `src/br/com/lbi/slack/` desse repo para o seu projeto. Confira que o Gson esta no `.classpath`.
+Se preferir fazer manualmente: copie os 5 arquivos de `src/br/com/lbi/slack/`
+desse repo para o seu projeto. Confira que o Gson esta no `.classpath`.
 
-### 8. Salvar o webhook no Sankhya W
+### 11. Criar preferencia LOGSLACK_WEBHOOK no Sankhya W
 
-Em **Administracao → Preferencias**, crie uma nova preferencia:
+Em **Administracao → Preferencias**, crie:
 
 - **Nome:** `LOGSLACK_WEBHOOK`
 - **Tipo:** TEXTO
 - **Tamanho:** 500
 - **Descricao:** `URL do Incoming Webhook Slack para logs (veja snk-slack)`
-- **Valor:** cole a URL copiada no passo 6
+- **Valor:** cole a URL copiada no passo 7
 
-Ver instrucoes detalhadas de UI em [scripts/criar-preferencia-logslack.md](scripts/criar-preferencia-logslack.md).
+Ver instrucoes detalhadas de UI em
+[scripts/criar-preferencia-logslack.md](scripts/criar-preferencia-logslack.md).
 
-### 9. Testar
+### 12. Testar ponta-a-ponta
 
-Acione o botao/rotina instrumentada no Sankhya. Em segundos uma mensagem aparece no canal configurado com o header do modulo e as entradas de log.
+Acione o botao/rotina instrumentada no Sankhya. Em segundos uma mensagem
+aparece no canal configurado com o header do modulo e as entradas de log.
 
 ## Personalizacao opcional
 
-### Mudar o nome que aparece como autor das mensagens
-
-Por padrao, a lib nao sobrescreve o nome configurado no app Slack — o que faz com que cada cliente veja seu proprio nome. Se quiser forcar um nome especifico:
+Por padrao, a lib nao sobrescreve o nome configurado no app Slack — cada
+cliente aparece com o proprio nome. Se quiser forcar um nome:
 
 ```java
 SlackLogger slack = SlackLogger.create(null)
     .modulo("Meu Modulo")
     .header("Minha Acao")
-    .username("Sankhya Bot")   // sobrescreve o nome do app no Slack
-    .icon(":warning:")          // sobrescreve o icone
+    .username("Sankhya Bot")   // sobrescreve nome do app
+    .icon(":warning:")          // sobrescreve icone
     .build();
 ```
 
-## Troubleshooting
+## Troubleshooting rapido
 
-- **Nao aparece nada no Slack:** confira que `LOGSLACK_WEBHOOK` existe como preferencia e o valor nao esta vazio. A lib vira no-op silenciosamente se a URL for null/vazia.
-- **HTTP 404 no log (channel_not_found):** canal privado e o bot nao foi adicionado ao canal. Volte ao passo 5.
-- **HTTP 404 generico:** URL do webhook errada ou revogada. Gere novo webhook e atualize a preferencia.
-- **Processo terminou mas log truncado:** falta `flush()` no caminho de erro. Ver [BOAS_PRATICAS.md](BOAS_PRATICAS.md) (pitfall do flush).
-- **Quer mudar de canal:** altere apenas o valor da preferencia `LOGSLACK_WEBHOOK` no Sankhya W. Sem deploy.
+- **Nao aparece nada no Slack:** `LOGSLACK_WEBHOOK` existe? Valor nao vazio?
+- **HTTP 404 channel_not_found:** canal privado e bot nao foi convidado.
+- **HTTP 404 outro:** URL errada ou revogada.
+- **Log truncado:** falta `flush()` no caminho de erro. Ver BOAS_PRATICAS.
+- **Quer mudar de canal:** altere so a preferencia — sem redeploy.
