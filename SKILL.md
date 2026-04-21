@@ -110,7 +110,7 @@ qualquer erro ate o PR que o causou — **sem configuracao adicional**.
 
 Exemplo do footer gerado:
 
-```
+```text
 v: abc12345 · feat/fix-estoque · PR #42
 ```
 
