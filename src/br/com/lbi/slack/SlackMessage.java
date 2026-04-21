@@ -27,6 +27,16 @@ class SlackMessage {
      */
     static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
                                    List<LogEntry> entries, long startTime) {
+        return toJsonList(modulo, header, contextMap, entries, startTime, true);
+    }
+
+    /**
+     * Variante com flag pra desligar o footer de release tracking
+     * (usado quando o chamador configurou <code>withReleaseTracking(false)</code>).
+     */
+    static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
+                                   List<LogEntry> entries, long startTime,
+                                   boolean releaseTracking) {
 
         List<JsonObject> allBlocks = new ArrayList<JsonObject>();
 
@@ -46,6 +56,14 @@ class SlackMessage {
         long elapsed = (System.currentTimeMillis() - startTime) / 1000;
         String footerText = ":clock1: Duracao: " + elapsed + "s | " + entries.size() + " entradas";
         allBlocks.add(contextBlockSimple(footerText));
+
+        // Footer de release tracking (auto-descoberto via DeployManifest)
+        if (releaseTracking) {
+            JsonObject versionBlock = versionFooterBlock();
+            if (versionBlock != null) {
+                allBlocks.add(versionBlock);
+            }
+        }
 
         // Divide em multiplas mensagens se necessario
         List<String> payloads = new ArrayList<String>();
@@ -111,6 +129,36 @@ class SlackMessage {
         block.addProperty("type", "context");
         block.add("elements", elements);
         return block;
+    }
+
+    /**
+     * Bloco "context" com metadados de build (hash, branch, PR).
+     * Retorna <code>null</code> se o manifest snk-deploy nao estiver
+     * presente no classpath.
+     *
+     * <p>Se {@link DeployManifest#getPrUrl()} estiver disponivel, o
+     * numero do PR vira link clicavel no formato mrkdwn Block Kit:
+     * <code>&lt;url|texto&gt;</code>.</p>
+     */
+    private static JsonObject versionFooterBlock() {
+        DeployManifest m = DeployManifest.get();
+        if (!m.isPresent()) return null;
+
+        StringBuilder sb = new StringBuilder("v: ");
+        sb.append(m.getHash() != null ? m.getHash() : "?");
+        if (m.getBranch() != null) {
+            sb.append(" \u00b7 ").append(m.getBranch());
+        }
+        if (m.getPrNumber() != null) {
+            sb.append(" \u00b7 ");
+            if (m.getPrUrl() != null) {
+                sb.append("<").append(m.getPrUrl()).append("|PR #").append(m.getPrNumber()).append(">");
+            } else {
+                sb.append("PR #").append(m.getPrNumber());
+            }
+        }
+
+        return contextBlockSimple(sb.toString());
     }
 
     private static JsonObject contextBlockSimple(String text) {

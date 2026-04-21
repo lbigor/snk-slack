@@ -50,6 +50,7 @@ public class SlackLogger {
     private final List<LogEntry> entries;
     private final long startTime;
     private final boolean disabled;
+    private final boolean releaseTracking;
 
     /** Construtor no-op (para NOOP). */
     private SlackLogger() {
@@ -60,6 +61,7 @@ public class SlackLogger {
         this.entries = new ArrayList<LogEntry>();
         this.startTime = System.currentTimeMillis();
         this.disabled = true;
+        this.releaseTracking = false;
     }
 
     private SlackLogger(Builder builder) {
@@ -75,6 +77,7 @@ public class SlackLogger {
         this.entries = new ArrayList<LogEntry>();
         this.startTime = System.currentTimeMillis();
         this.disabled = resolvedUrl == null || resolvedUrl.trim().isEmpty();
+        this.releaseTracking = builder.releaseTracking;
     }
 
     // ---- Factory ----
@@ -131,7 +134,7 @@ public class SlackLogger {
             List<LogEntry> snapshot = new ArrayList<LogEntry>(entries);
             entries.clear();
 
-            List<String> payloads = SlackMessage.toJsonList(modulo, header, contextMap, snapshot, startTime);
+            List<String> payloads = SlackMessage.toJsonList(modulo, header, contextMap, snapshot, startTime, releaseTracking);
             for (int i = 0; i < payloads.size(); i++) {
                 if (i > 0) {
                     Thread.sleep(1100); // rate limit Slack: 1 msg/s
@@ -174,6 +177,7 @@ public class SlackLogger {
         private String modulo = "";
         private String header = "Log";
         private final Map<String, String> contextMap = new LinkedHashMap<String, String>();
+        private boolean releaseTracking = true;
 
         Builder(String explicitUrl) {
             this.explicitUrl = explicitUrl;
@@ -194,6 +198,20 @@ public class SlackLogger {
         /** Adiciona campo de contexto (ex: "Rodada", "105"). */
         public Builder context(String key, String value) {
             this.contextMap.put(key, value);
+            return this;
+        }
+
+        /**
+         * Liga/desliga o footer automatico com metadados de build lidos do
+         * <code>META-INF/snk-deploy/manifest.json</code>. Default: <b>true</b>.
+         *
+         * <p>Desligue apenas se o manifest estiver gerando ruido indesejado
+         * nas mensagens. Em producao, o padrao e manter ligado — permite que
+         * <a href="https://github.com/lbigor/snk-doctor">snk-doctor</a>
+         * rastreie erros ate o PR que os causou.</p>
+         */
+        public Builder withReleaseTracking(boolean enabled) {
+            this.releaseTracking = enabled;
             return this;
         }
 

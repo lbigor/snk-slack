@@ -15,7 +15,7 @@
 
 Procurar por `src/br/com/lbi/slack/SlackLogger.java` no projeto atual. Se existir, pular para passo 4 (instrumentacao). Se nao existir, continuar.
 
-### 2. Copiar os 5 arquivos da lib
+### 2. Copiar os 6 arquivos da lib
 
 De `src/br/com/lbi/slack/` desse repo (snk-slack), copiar para o projeto alvo **mantendo o mesmo caminho**:
 
@@ -24,6 +24,7 @@ De `src/br/com/lbi/slack/` desse repo (snk-slack), copiar para o projeto alvo **
 - `SlackLogger.java`
 - `SlackMessage.java`
 - `SlackWebhookClient.java`
+- `DeployManifest.java`
 
 Nao editar conteudo. Confirme que o pacote e `br.com.lbi.slack` em todos.
 
@@ -81,6 +82,37 @@ Se o usuario quiser logs dentro de classes de service chamadas pelo entry point,
 - **Nao criar a preferencia via SQL** — isso e UI do Sankhya W, usuario faz.
 - **Nao hardcode URL do webhook** — sempre `SlackLogger.create(null)` em producao.
 - **Nao instrumentar services sem perguntar.**
+
+## Release tracking automatico
+
+Se o JAR foi empacotado pelo [snk-deploy](https://github.com/lbigor/snk-deploy),
+um `META-INF/snk-deploy/manifest.json` esta presente no classpath. O
+`SlackLogger` detecta automaticamente via `DeployManifest.get()` e anexa um
+footer em **cada mensagem Slack** com:
+
+- Hash curto do build (ex: `abc12345`)
+- Branch (ex: `feat/fix-estoque`)
+- Numero do PR (ex: `PR #42`, link clicavel se `prUrl` estiver disponivel)
+
+Isso permite que o [snk-doctor](https://github.com/lbigor/snk-doctor) rastreie
+qualquer erro ate o PR que o causou — **sem configuracao adicional**.
+
+- Se o manifest **nao existir** no classpath (build local, fora do snk-deploy),
+  o footer simplesmente nao aparece e nada quebra.
+- Para **desligar** intencionalmente:
+
+  ```java
+  SlackLogger.create(null)
+      .modulo("X").header("Y")
+      .withReleaseTracking(false)
+      .build();
+  ```
+
+Exemplo do footer gerado:
+
+```text
+v: abc12345 · feat/fix-estoque · PR #42
+```
 
 ## Referencia global
 
