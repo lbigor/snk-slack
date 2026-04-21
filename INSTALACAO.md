@@ -26,10 +26,20 @@ Acesse [api.slack.com/apps](https://api.slack.com/apps), clique em
 Esse nome vai aparecer como autor das mensagens no canal.
 O bot e criado automaticamente com o mesmo nome.
 
+Se voce ja tem o app criado, ele aparece na lista:
+
+![Lista de apps em api.slack.com](docs/screenshots/02a-lista-de-apps.png)
+
+Clique no nome pra abrir a pagina Basic Information:
+
+![Basic Information do app](docs/screenshots/02b-basic-information.png)
+
 ### 3. Ativar Incoming Webhooks
 
-No menu lateral do app, clique em **Incoming Webhooks**. Ative o toggle
-**Activate Incoming Webhooks**.
+No menu lateral do app (seção Features), clique em **Incoming Webhooks**.
+Ative o toggle **Activate Incoming Webhooks** (deve ficar verde "On").
+
+![Incoming Webhooks ativado](docs/screenshots/03a-incoming-webhooks-ativo.png)
 
 Ainda NAO crie o webhook — o canal ainda nao existe.
 
