@@ -51,6 +51,8 @@ public class SlackLogger {
     private final long startTime;
     private final boolean disabled;
     private final boolean releaseTracking;
+    private final String username;
+    private final String iconEmoji;
 
     /** Construtor no-op (para NOOP). */
     private SlackLogger() {
@@ -62,6 +64,8 @@ public class SlackLogger {
         this.startTime = System.currentTimeMillis();
         this.disabled = true;
         this.releaseTracking = false;
+        this.username = null;
+        this.iconEmoji = null;
     }
 
     private SlackLogger(Builder builder) {
@@ -78,6 +82,8 @@ public class SlackLogger {
         this.startTime = System.currentTimeMillis();
         this.disabled = resolvedUrl == null || resolvedUrl.trim().isEmpty();
         this.releaseTracking = builder.releaseTracking;
+        this.username = builder.username;
+        this.iconEmoji = builder.iconEmoji;
     }
 
     // ---- Factory ----
@@ -134,7 +140,7 @@ public class SlackLogger {
             List<LogEntry> snapshot = new ArrayList<LogEntry>(entries);
             entries.clear();
 
-            List<String> payloads = SlackMessage.toJsonList(modulo, header, contextMap, snapshot, startTime, releaseTracking);
+            List<String> payloads = SlackMessage.toJsonList(modulo, header, contextMap, snapshot, startTime, releaseTracking, username, iconEmoji);
             for (int i = 0; i < payloads.size(); i++) {
                 if (i > 0) {
                     Thread.sleep(1100); // rate limit Slack: 1 msg/s
@@ -178,6 +184,8 @@ public class SlackLogger {
         private String header = "Log";
         private final Map<String, String> contextMap = new LinkedHashMap<String, String>();
         private boolean releaseTracking = true;
+        private String username = null;
+        private String iconEmoji = null;
 
         Builder(String explicitUrl) {
             this.explicitUrl = explicitUrl;
@@ -212,6 +220,24 @@ public class SlackLogger {
          */
         public Builder withReleaseTracking(boolean enabled) {
             this.releaseTracking = enabled;
+            return this;
+        }
+
+        /**
+         * Nome que aparece como autor da mensagem no Slack. Se null ou vazio,
+         * o Slack usa o nome configurado no app (recomendado para multi-cliente).
+         */
+        public Builder username(String username) {
+            this.username = username;
+            return this;
+        }
+
+        /**
+         * Emoji que aparece como icone da mensagem (ex: ":gear:", ":robot_face:").
+         * Se null ou vazio, o Slack usa o icone configurado no app.
+         */
+        public Builder icon(String iconEmoji) {
+            this.iconEmoji = iconEmoji;
             return this;
         }
 
