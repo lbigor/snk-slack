@@ -27,16 +27,26 @@ class SlackMessage {
      */
     static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
                                    List<LogEntry> entries, long startTime) {
-        return toJsonList(modulo, header, contextMap, entries, startTime, true);
+        return toJsonList(modulo, header, contextMap, entries, startTime, true, null, null);
     }
 
     /**
-     * Variante com flag pra desligar o footer de release tracking
-     * (usado quando o chamador configurou <code>withReleaseTracking(false)</code>).
+     * Variante com flag pra desligar o footer de release tracking.
      */
     static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
                                    List<LogEntry> entries, long startTime,
                                    boolean releaseTracking) {
+        return toJsonList(modulo, header, contextMap, entries, startTime, releaseTracking, null, null);
+    }
+
+    /**
+     * Variante completa com username/icon customizaveis.
+     * username/iconEmoji null = Slack usa o nome e icone do app (padrao).
+     */
+    static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
+                                   List<LogEntry> entries, long startTime,
+                                   boolean releaseTracking,
+                                   String username, String iconEmoji) {
 
         List<JsonObject> allBlocks = new ArrayList<JsonObject>();
 
@@ -76,16 +86,25 @@ class SlackMessage {
                 blockIndex++;
                 count++;
             }
-            payloads.add(buildPayload(blocks));
+            payloads.add(buildPayload(blocks, username, iconEmoji));
         }
 
         return payloads;
     }
 
-    private static String buildPayload(JsonArray blocks) {
+    /**
+     * Constroi o payload JSON do Slack. Se username/iconEmoji forem null,
+     * o Slack usa o nome e icone configurados no app — comportamento correto
+     * pra cliente nao precisar rebuildar a lib pra aparecer com nome proprio.
+     */
+    private static String buildPayload(JsonArray blocks, String username, String iconEmoji) {
         JsonObject payload = new JsonObject();
-        payload.addProperty("username", "Log Sankhya");
-        payload.addProperty("icon_emoji", ":gear:");
+        if (username != null && !username.trim().isEmpty()) {
+            payload.addProperty("username", username.trim());
+        }
+        if (iconEmoji != null && !iconEmoji.trim().isEmpty()) {
+            payload.addProperty("icon_emoji", iconEmoji.trim());
+        }
         payload.add("blocks", blocks);
         return payload.toString();
     }
