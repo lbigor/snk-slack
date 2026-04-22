@@ -24,14 +24,23 @@ import br.com.sankhya.modelcore.util.MGECoreParameter;
  */
 public final class SlackConfig {
 
-    /** Preferencia Sankhya que armazena a URL do webhook (modo legado). */
-    public static final String PREFERENCIA_WEBHOOK = "LOGSLACK_WEBHOOK";
+    /**
+     * Preferencia Sankhya que armazena a URL do webhook (modo legado).
+     *
+     * <p>Nome limitado a 15 chars pela UI de preferencias do Sankhya W —
+     * evita truncamento no cadastro.</p>
+     */
+    public static final String PREFERENCIA_WEBHOOK = "LOGSLACK_HOOK";
 
-    /** Preferencia Sankhya que armazena o Bearer token do bot Slack. */
+    /** Preferencia Sankhya que armazena o Bearer token do bot Slack (14 chars). */
     public static final String PREFERENCIA_TOKEN = "LOGSLACK_TOKEN";
 
-    /** Preferencia Sankhya que armazena o ID do canal Slack (ex: C0AU7JUDEF2). */
-    public static final String PREFERENCIA_CHANNEL = "LOGSLACK_CHANNEL";
+    /**
+     * Preferencia Sankhya que armazena o ID do canal Slack (ex: C0AU7JUDEF2).
+     *
+     * <p>Nome limitado a 15 chars pela UI de preferencias do Sankhya W.</p>
+     */
+    public static final String PREFERENCIA_CHANNEL = "LOGSLACK_CHAN";
 
     private SlackConfig() {}
 

@@ -9,8 +9,13 @@ A lib resolve o transporte dinamicamente das preferencias Sankhya:
 
 | Modo | Preferencias | Quando usar |
 |---|---|---|
-| **API** (Slack Web API `chat.postMessage`) | `LOGSLACK_TOKEN` + `LOGSLACK_CHANNEL` | **Recomendado** — reaproveita o mesmo Bearer token (`xoxb-...`) que ja existe pra MCP/scripts auxiliares. Nao precisa criar Incoming Webhook no painel do Slack. |
-| **Webhook** (Incoming Webhook) | `LOGSLACK_WEBHOOK` | Legado — use apenas se o workspace nao permite bot tokens ou se o projeto ja esta configurado com webhook. |
+| **API** (Slack Web API `chat.postMessage`) | `LOGSLACK_TOKEN` + `LOGSLACK_CHAN` | **Recomendado** — reaproveita o mesmo Bearer token (`xoxb-...`) que ja existe pra MCP/scripts auxiliares. Nao precisa criar Incoming Webhook no painel do Slack. |
+| **Webhook** (Incoming Webhook) | `LOGSLACK_HOOK` | Legado — use apenas se o workspace nao permite bot tokens ou se o projeto ja esta configurado com webhook. |
+
+> **Nota:** os nomes das preferencias sao limitados a 15 chars pela UI do
+> Sankhya W. Por isso `LOGSLACK_CHAN` (em vez de `LOGSLACK_CHANNEL`) e
+> `LOGSLACK_HOOK` (em vez de `LOGSLACK_WEBHOOK`). Se voce tem cadastrada
+> a versao longa em algum projeto antigo, renomeie ao atualizar a lib.
 
 Se as tres preferencias existirem, a API ganha. A escolha e feita em tempo
 de execucao — nao precisa rebuildar a lib pra trocar.
@@ -86,8 +91,8 @@ Se o usuario quiser logs dentro de classes de service chamadas pelo entry point,
 ### 7. Orientar o usuario a:
 
 1. Criar as preferencias no Sankhya W conforme o modo escolhido:
-   - **Modo API (recomendado):** `LOGSLACK_TOKEN` (TEXTO, 80) com o Bearer token `xoxb-...` + `LOGSLACK_CHANNEL` (TEXTO, 30) com o ID do canal (`C...`).
-   - **Modo Webhook (legado):** `LOGSLACK_WEBHOOK` (TEXTO, 500) com a URL — ver [scripts/criar-preferencia-logslack.md](scripts/criar-preferencia-logslack.md).
+   - **Modo API (recomendado):** `LOGSLACK_TOKEN` (TEXTO, 80) com o Bearer token `xoxb-...` + `LOGSLACK_CHAN` (TEXTO, 30) com o ID do canal (`C...`).
+   - **Modo Webhook (legado):** `LOGSLACK_HOOK` (TEXTO, 500) com a URL — ver [scripts/criar-preferencia-logslack.md](scripts/criar-preferencia-logslack.md).
    - Em qualquer caso, tambem criar `LOGSLACK` (Logico) como ligado — sem isso o entry point nao instancia o logger.
 2. Buildar o projeto na IDE (JAR ou deploy direto).
 3. Rodar teste de fumaca acionando o entry point instrumentado.
