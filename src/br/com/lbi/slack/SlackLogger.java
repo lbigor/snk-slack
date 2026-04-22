@@ -6,14 +6,21 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Logger que acumula entradas e envia para o Slack via webhook.
+ * Logger que acumula entradas e envia para o Slack.
  *
- * <p>A URL do webhook pode ser:</p>
- * <ul>
- *   <li><b>null</b> (recomendado): le dinamicamente da preferencia
- *       Sankhya <code>LOGSLACK_WEBHOOK</code> via {@link SlackConfig#getWebhookUrl()}.</li>
- *   <li><b>explicita</b>: usa a string fornecida (util em testes).</li>
- * </ul>
+ * <p>Resolve o transporte em ordem de preferencia:</p>
+ * <ol>
+ *   <li><b>Slack Web API</b> via {@code chat.postMessage}: usa as preferencias
+ *       Sankhya {@code LOGSLACK_TOKEN} (Bearer) e {@code LOGSLACK_CHANNEL}
+ *       (ID do canal). <i>Recomendado</i> — reaproveita o mesmo bot token
+ *       usado em outras ferramentas (MCP, scripts) e elimina a criacao de
+ *       Incoming Webhook.</li>
+ *   <li><b>Incoming Webhook (legado)</b>: usa a preferencia
+ *       {@code LOGSLACK_WEBHOOK}. Ativado automaticamente quando TOKEN/CHANNEL
+ *       nao estao configurados.</li>
+ *   <li><b>NOOP</b>: se nenhum dos dois resolver, todos os metodos viram
+ *       no-ops e o processo principal nunca e afetado.</li>
+ * </ol>
  *
  * <p>Uso tipico:</p>
  *
@@ -34,16 +41,21 @@ import java.util.Map;
  * }
  * </pre>
  *
- * <p>Se a URL resolvida for null ou vazia, todos os metodos viram no-ops.
- * Falhas de envio ao Slack sao logadas em System.out e nunca lancam
- * excecao — o processo principal nunca e afetado.</p>
+ * <p>Falhas de envio sao logadas em {@code System.out} e nunca lancam
+ * excecao.</p>
  */
 public class SlackLogger {
 
     /** Instancia no-op: todos os metodos sao ignorados. Usar em vez de null. */
     public static final SlackLogger NOOP = new SlackLogger();
 
+    /** Modo de envio resolvido na construcao. */
+    private enum Transport { NOOP, API, WEBHOOK }
+
+    private final Transport transport;
     private final String webhookUrl;
+    private final String apiToken;
+    private final String apiChannel;
     private final String modulo;
     private final String header;
     private final Map<String, String> contextMap;
@@ -56,7 +68,10 @@ public class SlackLogger {
 
     /** Construtor no-op (para NOOP). */
     private SlackLogger() {
+        this.transport = Transport.NOOP;
         this.webhookUrl = null;
+        this.apiToken = null;
+        this.apiChannel = null;
         this.modulo = "";
         this.header = "";
         this.contextMap = new LinkedHashMap<String, String>();
@@ -69,21 +84,46 @@ public class SlackLogger {
     }
 
     private SlackLogger(Builder builder) {
-        // Resolve webhook: se explicitUrl == null, le da preferencia Sankhya.
-        String resolvedUrl = builder.explicitUrl != null
-            ? builder.explicitUrl
-            : SlackConfig.getWebhookUrl();
+        // Resolucao do transport: API (token+channel) > webhook > NOOP.
+        // Se o chamador passou URL explicita, preserva o comportamento antigo (webhook only).
+        String resolvedUrl = null;
+        String resolvedToken = null;
+        String resolvedChannel = null;
+        Transport resolvedTransport;
 
+        if (builder.explicitUrl != null) {
+            resolvedUrl = builder.explicitUrl;
+            resolvedTransport = isNonEmpty(resolvedUrl) ? Transport.WEBHOOK : Transport.NOOP;
+        } else {
+            String t = SlackConfig.getToken();
+            String c = SlackConfig.getChannel();
+            if (isNonEmpty(t) && isNonEmpty(c)) {
+                resolvedToken = t;
+                resolvedChannel = c;
+                resolvedTransport = Transport.API;
+            } else {
+                resolvedUrl = SlackConfig.getWebhookUrl();
+                resolvedTransport = isNonEmpty(resolvedUrl) ? Transport.WEBHOOK : Transport.NOOP;
+            }
+        }
+
+        this.transport = resolvedTransport;
         this.webhookUrl = resolvedUrl;
+        this.apiToken = resolvedToken;
+        this.apiChannel = resolvedChannel;
         this.modulo = builder.modulo;
         this.header = builder.header;
         this.contextMap = builder.contextMap;
         this.entries = new ArrayList<LogEntry>();
         this.startTime = System.currentTimeMillis();
-        this.disabled = resolvedUrl == null || resolvedUrl.trim().isEmpty();
+        this.disabled = resolvedTransport == Transport.NOOP;
         this.releaseTracking = builder.releaseTracking;
         this.username = builder.username;
         this.iconEmoji = builder.iconEmoji;
+    }
+
+    private static boolean isNonEmpty(String s) {
+        return s != null && !s.trim().isEmpty();
     }
 
     // ---- Factory ----
@@ -140,12 +180,20 @@ public class SlackLogger {
             List<LogEntry> snapshot = new ArrayList<LogEntry>(entries);
             entries.clear();
 
-            List<String> payloads = SlackMessage.toJsonList(modulo, header, contextMap, snapshot, startTime, releaseTracking, username, iconEmoji);
+            // Quando transport=API, SlackMessage injeta "channel" no payload.
+            String channelForPayload = transport == Transport.API ? apiChannel : null;
+            List<String> payloads = SlackMessage.toJsonList(modulo, header, contextMap, snapshot, startTime,
+                releaseTracking, username, iconEmoji, channelForPayload);
+
             for (int i = 0; i < payloads.size(); i++) {
                 if (i > 0) {
                     Thread.sleep(1100); // rate limit Slack: 1 msg/s
                 }
-                SlackWebhookClient.send(webhookUrl, payloads.get(i));
+                if (transport == Transport.API) {
+                    SlackApiClient.postMessage(apiToken, payloads.get(i));
+                } else {
+                    SlackWebhookClient.send(webhookUrl, payloads.get(i));
+                }
             }
         } catch (Exception e) {
             System.out.println("[SlackLogger] Erro ao enviar flush: " + e.getMessage());
