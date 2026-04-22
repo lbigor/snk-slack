@@ -83,6 +83,79 @@ Se o usuario quiser logs dentro de classes de service chamadas pelo entry point,
 - **Nao hardcode URL do webhook** — sempre `SlackLogger.create(null)` em producao.
 - **Nao instrumentar services sem perguntar.**
 
+## Regra de instrumentacao obrigatoria em cada ramo
+
+**Depois que a `snk-slack` esta ativada num projeto, toda edicao subsequente
+em `.java` que tenha `SlackLogger slack` no escopo precisa instrumentar
+cada ramo novo ou alterado.** Nao basta logar o caminho feliz — tem que
+cobrir:
+
+1. **Ramos de bypass/atalho** (ex: `if (flag == "S") return;`): emitir
+   `slack.debug(TAG, "<NOME>_BYPASS motivo=..."),` **antes** do return, com
+   contexto suficiente pra entender por que pulou.
+2. **Leituras de `MGECoreParameter`**: logar 3 casos separados —
+   - valor lido com sucesso: `slack.debug("CONFIG", "<PARAM>=<valor> (lido de MGECoreParameter)")`
+   - ausente/vazio/null: `slack.debug("CONFIG", "<PARAM> ausente/vazio — usando default <X>")`
+   - exception: `slack.debug("CONFIG", "<PARAM> erro ao ler ("+e.getClass().getSimpleName()+": "+e.getMessage()+") — usando default <X>")`
+3. **`catch (Exception ignored)` e proibido.** Sempre logar
+   `e.getClass().getSimpleName() + ": " + e.getMessage()`. Se for esperado
+   que o catch silencie o erro, logar mesmo assim (nivel `debug` ou `warn`),
+   nunca `ignored`.
+4. **Antes de loops grandes**, emitir um `slack.debug` de resumo com:
+   quantidade de itens, limites em uso, parametros lidos. Ajuda a
+   correlacionar com os logs individuais que vem depois.
+5. **Metodos auxiliares novos** que rodam em contexto com `SlackLogger`
+   **devem receber** o `SlackLogger` como parametro. Nao cair em
+   `SlackLogger.NOOP` internamente — isso esconde diagnostico em producao.
+6. **Reutilizar as tags convencionadas** em [BOAS_PRATICAS.md](BOAS_PRATICAS.md#tags-convencionadas)
+   (ex: `CONFIG`, `FILTRO`, `SKIP`, `COND`, `RESUMO`). Inventar tag nova so
+   quando nenhuma cabe — e documentar ali.
+
+**Por que e obrigatorio:** sem esses debugs, quando um lote/item e cortado
+silenciosamente em producao nao da pra saber se foi pela parametrizacao
+global, pelo flag do parceiro, ou por falha de leitura. O projeto so emite
+o log do caminho feliz + catch final, e isso nao basta pra diagnosticar.
+
+**Exemplo canonico** (trecho real de `Utils.filtrarPorValidade` apos instrumentacao):
+
+```java
+public static List<ItemEstoque> filtrarPorValidade(
+        List<ItemEstoque> itens, ItemEmpenho item, SlackLogger slack) {
+    if ("S".equals(item.getAceitaTrocaValidade())) {
+        slack.debug("FILTRO", "VALIDADE_BYPASS CODPARC=" + item.getCodParc()
+            + " (parceiro aceita validade inferior)");
+        return itens;
+    }
+    int minMeses = getValidadeMinimaMeses(slack);  // <-- slack propagado
+    Calendar cal = Calendar.getInstance();
+    cal.add(Calendar.MONTH, minMeses);
+    Timestamp limite = new Timestamp(cal.getTimeInMillis());
+    slack.debug("FILTRO", "VALIDADE_APLICANDO MIN_MESES=" + minMeses
+        + " LIMITE=" + limite + " QTD_LOTES=" + itens.size());
+    // ... loop com APROVADO/VALIDADE_INSUF por item ...
+}
+
+private static int getValidadeMinimaMeses(SlackLogger slack) {
+    try {
+        String v = MGECoreParameter.getParameterAsString("EMPVALMIN");
+        if (v != null && !v.trim().isEmpty()) {
+            int meses = Integer.parseInt(v.trim());
+            slack.debug("CONFIG", "EMPVALMIN=" + meses + " (lido de MGECoreParameter)");
+            return meses;
+        }
+        slack.debug("CONFIG", "EMPVALMIN ausente/vazio — usando default 12 meses");
+    } catch (Exception e) {
+        slack.debug("CONFIG", "EMPVALMIN erro ao ler MGECoreParameter ("
+            + e.getClass().getSimpleName() + ": " + e.getMessage()
+            + ") — usando default 12 meses");
+    }
+    return 12;
+}
+```
+
+A `snk-doctor` tem um caso `kb/log-silencioso.md` que detecta violacoes
+desta regra em code review.
+
 ## Release tracking automatico
 
 Se o JAR foi empacotado pelo [snk-deploy](https://github.com/lbigor/snk-deploy),

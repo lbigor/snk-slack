@@ -26,6 +26,7 @@ Use tags curtas e padronizadas. Facilita filtro no Slack e grep de logs.
 | `SKIP` | Item/cenario pulado (com motivo) |
 | `COND` | Condicao de negocio avaliada |
 | `FILTRO` | Criterio aplicado na query |
+| `CONFIG` | Leitura de preferencia via `MGECoreParameter` (valor lido, default aplicado, exception) |
 | `EMP` | Confirmacao de empenho |
 | `PEDIDO` | Criacao/alteracao de pedido |
 | `TRANSF` | Transferencia entre filiais |
@@ -90,9 +91,31 @@ Slack aceita 1 mensagem por segundo por webhook. A lib ja respeita com `Thread.s
 - **`error(tag, text, Throwable)`**: com stack trace — usar em catches.
 - **`debug`**: detalhes de desenvolvimento. Desligar em producao via flag do chamador (a lib nao filtra).
 
+## Instrumentacao obrigatoria em cada ramo
+
+Uma vez que a `snk-slack` esta ativada num projeto, **toda edicao futura**
+em `.java` com `SlackLogger` no escopo deve emitir `slack.debug` em **cada
+ramo novo ou alterado**. A regra completa esta em [SKILL.md](SKILL.md#regra-de-instrumentacao-obrigatoria-em-cada-ramo);
+resumo:
+
+- Bypass/atalho antes de `return` → logar motivo
+- `MGECoreParameter` → logar 3 casos (valor lido, ausente, exception)
+- `catch (Exception ignored)` → **proibido**, sempre capturar `e.getClass().getSimpleName()` + `e.getMessage()`
+- Antes de loops grandes → `slack.debug` de resumo (qtd, limites, params)
+- Metodos auxiliares novos → **receber** `SlackLogger` como parametro, nao
+  usar `NOOP` internamente
+- Reutilizar tags (`CONFIG`, `FILTRO`, `SKIP`, `COND`, `RESUMO` etc.)
+
+**Por que:** sem esses debugs, item cortado silenciosamente em producao nao
+tem como ser diagnosticado — o caminho feliz + catch final nao basta.
+
+A `snk-doctor` tem `kb/log-silencioso.md` pra detectar violacoes em revisao.
+
 ## Nao faca
 
 - Nao logue senhas, tokens ou dados sensiveis (LGPD).
 - Nao logue BLOBs ou strings gigantes — a lib divide em paginas mas ocupa rate-limit.
 - Nao chame `new SlackLogger` — use `SlackLogger.create(...)` sempre.
 - Nao compartilhe a URL do webhook publicamente — e uma credencial.
+- Nao use `catch (Exception ignored)` — viola a regra de instrumentacao acima.
+- Nao adicione `if`/`else` novo sem `slack.debug` em cada ramo — viola a regra acima.
