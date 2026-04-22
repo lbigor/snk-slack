@@ -27,7 +27,7 @@ class SlackMessage {
      */
     static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
                                    List<LogEntry> entries, long startTime) {
-        return toJsonList(modulo, header, contextMap, entries, startTime, true, null, null);
+        return toJsonList(modulo, header, contextMap, entries, startTime, true, null, null, null);
     }
 
     /**
@@ -36,17 +36,31 @@ class SlackMessage {
     static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
                                    List<LogEntry> entries, long startTime,
                                    boolean releaseTracking) {
-        return toJsonList(modulo, header, contextMap, entries, startTime, releaseTracking, null, null);
+        return toJsonList(modulo, header, contextMap, entries, startTime, releaseTracking, null, null, null);
     }
 
     /**
-     * Variante completa com username/icon customizaveis.
-     * username/iconEmoji null = Slack usa o nome e icone do app (padrao).
+     * Variante com username/icon (sem channel — usada pelo transport webhook).
      */
     static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
                                    List<LogEntry> entries, long startTime,
                                    boolean releaseTracking,
                                    String username, String iconEmoji) {
+        return toJsonList(modulo, header, contextMap, entries, startTime, releaseTracking, username, iconEmoji, null);
+    }
+
+    /**
+     * Variante completa com channel opcional.
+     *
+     * <p>{@code channel} nao-nulo indica transport API (<code>chat.postMessage</code>):
+     * o campo {@code "channel"} e injetado no payload. Quando {@code null},
+     * o payload e compativel com Incoming Webhook (sem {@code channel}).</p>
+     */
+    static List<String> toJsonList(String modulo, String header, Map<String, String> contextMap,
+                                   List<LogEntry> entries, long startTime,
+                                   boolean releaseTracking,
+                                   String username, String iconEmoji,
+                                   String channel) {
 
         List<JsonObject> allBlocks = new ArrayList<JsonObject>();
 
@@ -86,19 +100,22 @@ class SlackMessage {
                 blockIndex++;
                 count++;
             }
-            payloads.add(buildPayload(blocks, username, iconEmoji));
+            payloads.add(buildPayload(blocks, username, iconEmoji, channel));
         }
 
         return payloads;
     }
 
     /**
-     * Constroi o payload JSON do Slack. Se username/iconEmoji forem null,
-     * o Slack usa o nome e icone configurados no app — comportamento correto
-     * pra cliente nao precisar rebuildar a lib pra aparecer com nome proprio.
+     * Constroi o payload JSON. {@code channel} nao-nulo adiciona
+     * {@code "channel":"<c>"} no payload (requerido pelo endpoint
+     * <code>chat.postMessage</code>). Username/iconEmoji seguem opcionais.
      */
-    private static String buildPayload(JsonArray blocks, String username, String iconEmoji) {
+    private static String buildPayload(JsonArray blocks, String username, String iconEmoji, String channel) {
         JsonObject payload = new JsonObject();
+        if (channel != null && !channel.trim().isEmpty()) {
+            payload.addProperty("channel", channel.trim());
+        }
         if (username != null && !username.trim().isEmpty()) {
             payload.addProperty("username", username.trim());
         }

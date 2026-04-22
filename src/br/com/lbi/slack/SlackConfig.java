@@ -3,40 +3,79 @@ package br.com.lbi.slack;
 import br.com.sankhya.modelcore.util.MGECoreParameter;
 
 /**
- * Configuracao centralizada do Slack webhook.
+ * Configuracao centralizada do cliente Slack.
  *
- * <p>A URL do webhook e lida dinamicamente da preferencia Sankhya
- * <code>LOGSLACK_WEBHOOK</code> em cada chamada — sem cache — para permitir
- * que o administrador altere o canal no Sankhya W sem deploy de codigo.</p>
+ * <p>Suporta dois modos de envio, resolvidos dinamicamente via
+ * {@link MGECoreParameter} a cada chamada (sem cache):</p>
  *
- * <p>Se a preferencia estiver vazia ou inexistente, o {@link SlackLogger}
- * vira no-op e o processo principal nunca e afetado.</p>
+ * <ol>
+ *   <li><b>API Slack Web (recomendado)</b>: preferencias
+ *       {@code LOGSLACK_TOKEN} (Bearer token, ex: {@code xoxb-...}) e
+ *       {@code LOGSLACK_CHANNEL} (ID do canal, ex: {@code C0AU7JUDEF2}).
+ *       Permite reaproveitar o mesmo bot token entre ferramentas
+ *       (MCP, scripts auxiliares, etc.) sem criar webhook no Slack.</li>
+ *   <li><b>Incoming Webhook (legado)</b>: preferencia
+ *       {@code LOGSLACK_WEBHOOK} (URL <code>https://hooks.slack.com/services/...</code>).</li>
+ * </ol>
  *
- * <p>Criar a preferencia em: Administracao &rarr; Preferencias &rarr;
- * nova preferencia <code>LOGSLACK_WEBHOOK</code> (TEXTO, 500) com a URL
- * gerada em api.slack.com/apps (Incoming Webhook).</p>
+ * <p>{@link SlackLogger} prefere o modo API quando as duas preferencias
+ * {@code LOGSLACK_TOKEN} e {@code LOGSLACK_CHANNEL} estao preenchidas;
+ * caso contrario cai no webhook; caso contrario vira no-op.</p>
  */
 public final class SlackConfig {
 
-    /** Nome da preferencia Sankhya que armazena a URL do webhook. */
-    public static final String PREFERENCIA_WEBHOOK = "LOGSLACK_WEBHOOK";
+    /**
+     * Preferencia Sankhya que armazena a URL do webhook (modo legado).
+     *
+     * <p>Nome limitado a 15 chars pela UI de preferencias do Sankhya W —
+     * evita truncamento no cadastro.</p>
+     */
+    public static final String PREFERENCIA_WEBHOOK = "LOGSLACK_HOOK";
+
+    /** Preferencia Sankhya que armazena o Bearer token do bot Slack (14 chars). */
+    public static final String PREFERENCIA_TOKEN = "LOGSLACK_TOKEN";
+
+    /**
+     * Preferencia Sankhya que armazena o ID do canal Slack (ex: C0AU7JUDEF2).
+     *
+     * <p>Nome limitado a 15 chars pela UI de preferencias do Sankhya W.</p>
+     */
+    public static final String PREFERENCIA_CHANNEL = "LOGSLACK_CHAN";
 
     private SlackConfig() {}
 
     /**
-     * Le dinamicamente a URL do webhook do Sankhya W (MGECoreParameter).
-     * Sem cache — mudanca na preferencia reflete na proxima chamada.
+     * Le a URL do webhook da preferencia {@link #PREFERENCIA_WEBHOOK}.
      *
-     * @return URL trim-ada, ou <code>null</code> se preferencia vazia/ausente
-     *         ou se o lookup falhar (logger vira no-op).
+     * @return URL trim-ada, ou {@code null} se ausente/vazia/erro.
      */
     public static String getWebhookUrl() {
+        return readParam(PREFERENCIA_WEBHOOK);
+    }
+
+    /**
+     * Le o Bearer token da preferencia {@link #PREFERENCIA_TOKEN}.
+     *
+     * @return token trim-ado, ou {@code null} se ausente/vazio/erro.
+     */
+    public static String getToken() {
+        return readParam(PREFERENCIA_TOKEN);
+    }
+
+    /**
+     * Le o ID do canal da preferencia {@link #PREFERENCIA_CHANNEL}.
+     *
+     * @return ID trim-ado, ou {@code null} se ausente/vazio/erro.
+     */
+    public static String getChannel() {
+        return readParam(PREFERENCIA_CHANNEL);
+    }
+
+    private static String readParam(String key) {
         try {
-            String url = MGECoreParameter.getParameterAsString(PREFERENCIA_WEBHOOK);
-            if (url == null) {
-                return null;
-            }
-            String trimmed = url.trim();
+            String v = MGECoreParameter.getParameterAsString(key);
+            if (v == null) return null;
+            String trimmed = v.trim();
             return trimmed.isEmpty() ? null : trimmed;
         } catch (Exception e) {
             return null;
